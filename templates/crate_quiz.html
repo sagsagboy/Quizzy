@@ -1,0 +1,31 @@
+<html>
+  <head>
+    <title>quizzy</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="static/bootstrap.min.css" rel="stylesheet" media="screen">
+  </head>
+  <body>
+    <div class="container">
+      <h1>Enter a questin</h1>
+      <br>
+      <form action="" method="post">
+        <input type="text" placeholder="Question" name="Question" value="{{
+          request.form.Question }}"><br>
+		  <br>
+		  <input type="radio" name="answers" value="1"checked> <input type="text" placeholder="answer1" name="answer1" value="{{
+          request.form.answer1 }}"></input><br>
+		  <input type="radio" name="answers" value="2"> <input type="text" placeholder="answer2" name="answer2" value="{{
+          request.form.answer2 }}"></input><br>
+		  <input type="radio" name="answers" value="3"> <input type="text" placeholder="answer3" name="answer3" value="{{
+          request.form.answer3 }}"></input><br>
+		  <input type="radio" name="answers" value="4"> <input type="text" placeholder="answer4" name="answer4" value="{{
+          request.form.answer4 }}"></input><br>
+         
+        <input class="btn btn-default" type="submit" value="submit">
+      </form>
+      {% if error %}
+        <p class="error"><strong>Error:</strong> {{ error }}
+      {% endif %}
+    </div>
+  </body>
+</html>
