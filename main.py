@@ -1,15 +1,22 @@
 # import the Flask class from the flask module
 from flask import Flask, render_template, redirect, url_for, request
-from database import Database
+import database
+from database import User
 from question import Question
 from quiz import Quiz
 
+# create the SQLalchemy engine and session
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+engine = create_engine('sqlite:///C:\\Users\\Admin\\PycharmProjects\\Quizzy\\quizzy.db', echo=True)
+Session = sessionmaker(bind=engine)
+session = Session()
+
 # create the application object
 app = Flask(__name__)
-DB = Database()
 this_quiz = Quiz()
-this_quiz.add_question("what is my name?", "sagi", "yam", "shachar", "roy", "1")
-this_quiz.add_question("what is my age", "11", "13", "15", "17", "4")
+# this_quiz.add_question("what is my name?", "sagi", "yam", "shachar", "roy", "1")
+# this_quiz.add_question("what is my age", "11", "13", "15", "17", "4")
 index = 0
 
 
@@ -41,11 +48,10 @@ def crate_quiz():
 def signup():
     error = None
     if request.method == 'POST':
-        if '@' not in request.form['email']:
-            error = 'Invalid email. Please try again.'
-        else:
-            DB.add_user(request.form['username'], request.form['password'], request.form['email'])
-            return redirect(url_for('home'))
+        u = User(Name=request.form['username'], Passhash=request.form['password'])
+        session.add(u)
+        session.commit()
+        return redirect(url_for('home'))
     return render_template('signup.html', error=error)
 
 
@@ -72,4 +78,4 @@ def quiz():
 
 # start the server with the 'run()' method
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0')
+    app.run(debug=True,)

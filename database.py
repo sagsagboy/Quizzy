@@ -10,17 +10,18 @@ metadata = Base.metadata
 class User(Base):
     __tablename__ = 'users'
 
-    ID = Column(Text, primary_key=True)
+    ID = Column(Integer, primary_key=True, autoincrement=True)
     Name = Column(Text)
     Passhash = Column(Text)
     Salt = Column(Text)
     sessionHash = Column(Text)
 
 
+
 class Game(Base):
     __tablename__ = 'Games'
 
-    ID = Column(Text, primary_key=True)
+    ID = Column(Integer, primary_key=True, autoincrement=True)
     Name = Column(Text)
     OwnerID = Column(ForeignKey('users.ID'))
 
@@ -30,7 +31,7 @@ class Game(Base):
 class GameRun(Base):
     __tablename__ = 'GameRuns'
 
-    ID = Column(Text, primary_key=True)
+    ID = Column(Integer, primary_key=True, autoincrement=True)
     Name = Column(Text)
     CurrQustion = Column(Text)
     Status = Column(Text)
@@ -48,7 +49,7 @@ class Question(Base):
         CheckConstraint('RightAnswer <= 4 AND RightAnswer > 0), "order" TEXT, gameID TEXT REFERENCES Games (ID)'),
     )
 
-    ID = Column(Text, primary_key=True)
+    ID = Column(Integer, primary_key=True, autoincrement=True)
     text = Column(Text)
     option1 = Column(Text)
     option2 = Column(Text)
