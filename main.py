@@ -5,6 +5,8 @@ from database import User
 from question import Question
 from quiz import Quiz
 
+import hashlib, binascii, os
+
 # create the SQLalchemy engine and session
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -19,6 +21,15 @@ this_quiz = Quiz()
 # this_quiz.add_question("what is my age", "11", "13", "15", "17", "4")
 index = 0
 
+
+def hash_password(password):
+    """Hash a password for storing."""
+    salt = hashlib.sha256(os.urandom(60)).hexdigest().encode('ascii')
+    pwdhash = hashlib.pbkdf2_hmac('sha512', password.encode('utf-8'), salt, 100000)
+    pwdhash = binascii.hexlify(pwdhash)
+    pwdhash = pwdhash.decode('ascii')
+    salt = salt.decode('ascii')
+    return pwdhash, salt
 
 # use decorators to link the function to a url
 @app.route('/')
@@ -48,11 +59,26 @@ def crate_quiz():
 def signup():
     error = None
     if request.method == 'POST':
-        u = User(Name=request.form['username'], Passhash=request.form['password'])
-        session.add(u)
-        session.commit()
-        return redirect(url_for('home'))
+        exists = session.query(User.Name).filter_by(Name=request.form['username']).scalar() is not None
+        print(exists)
+        if exists:
+            error = 'username already exist please choose another one'
+        else:
+            passhash, salt = hash_password(request.form['password'])
+            ps = User(Name=request.form['username'], Passhash=passhash, Salt=salt)
+            session.add(ps)
+            session.commit()
+            return redirect(url_for('home'))
     return render_template('signup.html', error=error)
+
+
+''''@app.route('/login', methods=['GET', 'POST'])
+def login():
+    error = None
+    if request.method == 'POST':
+
+
+    return render_template('login.html', error=error'''
 
 
 @app.route('/quiz', methods=['GET', 'POST'])
