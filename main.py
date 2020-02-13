@@ -1,5 +1,6 @@
 # import the Flask class from the flask module
 from flask import Flask, render_template, redirect, url_for, request
+import uuid
 import database
 from database import User
 from question import Question
@@ -30,6 +31,17 @@ def hash_password(password):
     pwdhash = pwdhash.decode('ascii')
     salt = salt.decode('ascii')
     return pwdhash, salt
+
+def verify_password(stored_password, salt, provided_password):
+    """Verify a stored password against one provided by user"""
+    salt = salt
+    stored_password = stored_password
+    pwdhash = hashlib.pbkdf2_hmac('sha512',
+                                  provided_password.encode('utf-8'),
+                                  salt.encode('ascii'),
+                                  100000)
+    pwdhash = binascii.hexlify(pwdhash).decode('ascii')
+    return pwdhash == stored_password
 
 # use decorators to link the function to a url
 @app.route('/')
@@ -72,13 +84,25 @@ def signup():
     return render_template('signup.html', error=error)
 
 
-''''@app.route('/login', methods=['GET', 'POST'])
+@app.route('/login', methods=['GET', 'POST'])
 def login():
     error = None
     if request.method == 'POST':
+        # user_pass = session.query(User.Passhash).filter_by(Name=request.form['username'])
+        # salt = user_pass = session.query(User.Salt).filter_by(Name=request.form['username'])
+        given_pass = request.form['password']
 
-
-    return render_template('login.html', error=error'''
+        same_pass = verify_password(user_pass, salt, given_pass)
+        if same_pass:
+             session_hush = uuid.uuid1()
+             stmt = User.update().where(User.Name == request.form['username']).values(sessionHush=session_hush)
+             session.commit(stmt)
+             resp = Flask.make_response(render_template('login.html', error=error))
+             resp.set_cookie(request.form['username'], session_hush)
+             return resp
+        else:
+            error = 'username or password may be incorrect'
+    return render_template('login.html', error=error)
 
 
 @app.route('/quiz', methods=['GET', 'POST'])
