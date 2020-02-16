@@ -1,19 +1,26 @@
 # import the Flask class from the flask module
-from flask import Flask, render_template, redirect, url_for, request
+from flask import Flask, render_template, redirect, url_for, request, make_response
+from threading import Lock
 import uuid
 import database
 from database import User
 from question import Question
 from quiz import Quiz
 
-import hashlib, binascii, os
+from sqlalchemy.sql import select
+from sqlalchemy import update
+
+import hashlib
+import binascii
+import os
 
 # create the SQLalchemy engine and session
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-engine = create_engine('sqlite:///C:\\Users\\Admin\\PycharmProjects\\Quizzy\\quizzy.db', echo=True)
+engine = create_engine('sqlite:///C:\\Users\\Admin\\PycharmProjects\\Quizzy\\quizzy.db?check_same_thread=False', echo=True)
 Session = sessionmaker(bind=engine)
 session = Session()
+DbMutex = Lock()
 
 # create the application object
 app = Flask(__name__)
@@ -34,8 +41,6 @@ def hash_password(password):
 
 def verify_password(stored_password, salt, provided_password):
     """Verify a stored password against one provided by user"""
-    salt = salt
-    stored_password = stored_password
     pwdhash = hashlib.pbkdf2_hmac('sha512',
                                   provided_password.encode('utf-8'),
                                   salt.encode('ascii'),
@@ -78,8 +83,9 @@ def signup():
         else:
             passhash, salt = hash_password(request.form['password'])
             ps = User(Name=request.form['username'], Passhash=passhash, Salt=salt)
-            session.add(ps)
-            session.commit()
+            with DbMutex:
+                session.add(ps)
+                session.commit()
             return redirect(url_for('home'))
     return render_template('signup.html', error=error)
 
@@ -88,17 +94,20 @@ def signup():
 def login():
     error = None
     if request.method == 'POST':
-        # user_pass = session.query(User.Passhash).filter_by(Name=request.form['username'])
-        # salt = user_pass = session.query(User.Salt).filter_by(Name=request.form['username'])
+        my_user = session.query(User).filter_by(Name=request.form['username']).first()
+        user_pass = my_user.Passhash
+        salt = my_user.Salt
         given_pass = request.form['password']
-
         same_pass = verify_password(user_pass, salt, given_pass)
         if same_pass:
-             session_hush = uuid.uuid1()
-             stmt = User.update().where(User.Name == request.form['username']).values(sessionHush=session_hush)
-             session.commit(stmt)
-             resp = Flask.make_response(render_template('login.html', error=error))
-             resp.set_cookie(request.form['username'], session_hush)
+             session_hash = uuid.uuid4()
+             print(session_hash)
+             with DbMutex:
+                my_user.sessionHash = str(session_hash)
+                session.commit()
+             resp = make_response(redirect(url_for('home')))
+             resp.set_cookie("user", request.form['username'])
+             resp.set_cookie("session",  str(session_hash))
              return resp
         else:
             error = 'username or password may be incorrect'
