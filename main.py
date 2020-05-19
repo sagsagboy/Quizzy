@@ -2,9 +2,7 @@
 from flask import Flask, render_template, redirect, url_for, request, make_response
 from threading import Lock
 import uuid
-import database
-from database import User
-from question import Question
+from database import *
 from quiz import Quiz
 
 from sqlalchemy.sql import select
@@ -17,7 +15,7 @@ import os
 # create the SQLalchemy engine and session
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-engine = create_engine('sqlite:///C:\\Users\\Admin\\PycharmProjects\\Quizzy\\quizzy.db?check_same_thread=False', echo=True)
+engine = create_engine('sqlite:///quizzy.db?check_same_thread=False', echo=True)
 Session = sessionmaker(bind=engine)
 session = Session()
 DbMutex = Lock()
@@ -25,8 +23,6 @@ DbMutex = Lock()
 # create the application object
 app = Flask(__name__)
 this_quiz = Quiz()
-# this_quiz.add_question("what is my name?", "sagi", "yam", "shachar", "roy", "1")
-# this_quiz.add_question("what is my age", "11", "13", "15", "17", "4")
 index = 0
 
 
@@ -61,13 +57,21 @@ def welcome():
 
 @app.route('/crate', methods=['GET', 'POST'])
 def crate_quiz():
-    if request.method == 'POST':
-        this_quiz.add_question(request.form['Question'],
-                               request.form['answer1'],
-                               request.form['answer2'],
-                               request.form['answer3'],
-                               request.form['answer4'],
-                               request.form['answers'])
+    user_name = request.cookies.get('user')
+    #session_hash = request.cookies.get('session')
+    exists = session.query(User.Name).filter_by(Name=user_name).scalar() is not None
+    if exists:
+        if request.method == 'POST':
+            new_question = Question(text=request.form['Question'],option1=request.form['answer1'],
+                                    option2=request.form['answer2'],option3=request.form['answer3'],
+                                    option4=request.form['answer4'],RightAnswer=request.form['answers'])
+            with DbMutex:
+                session.add(new_question)
+                session.commit()
+
+    else:
+        return ("You need to login to an account or create a new one to create a quiz")
+
     return render_template('crate_quiz.html')
 
 
@@ -77,7 +81,6 @@ def signup():
     error = None
     if request.method == 'POST':
         exists = session.query(User.Name).filter_by(Name=request.form['username']).scalar() is not None
-        print(exists)
         if exists:
             error = 'username already exist please choose another one'
         else:
