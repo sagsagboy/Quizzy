@@ -17,7 +17,6 @@ class User(Base):
     sessionHash = Column(Text)
 
 
-
 class Game(Base):
     __tablename__ = 'Games'
 

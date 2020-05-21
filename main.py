@@ -15,6 +15,7 @@ import os
 # create the SQLalchemy engine and session
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+
 engine = create_engine('sqlite:///quizzy.db?check_same_thread=False', echo=True)
 Session = sessionmaker(bind=engine)
 session = Session()
@@ -35,6 +36,7 @@ def hash_password(password):
     salt = salt.decode('ascii')
     return pwdhash, salt
 
+
 def verify_password(stored_password, salt, provided_password):
     """Verify a stored password against one provided by user"""
     pwdhash = hashlib.pbkdf2_hmac('sha512',
@@ -44,35 +46,50 @@ def verify_password(stored_password, salt, provided_password):
     pwdhash = binascii.hexlify(pwdhash).decode('ascii')
     return pwdhash == stored_password
 
+
 # use decorators to link the function to a url
 @app.route('/')
 def home():
     return render_template('home.html')  # return a string
 
 
-@app.route('/welcome')
-def welcome():
-    return render_template('welcome.html')  # render a template
-
-
-@app.route('/crate', methods=['GET', 'POST'])
-def crate_quiz():
+@app.route('/create/name', methods=['GET', 'POST'])
+def crate_quiz_name():
     user_name = request.cookies.get('user')
-    #session_hash = request.cookies.get('session')
+    # session_hash = request.cookies.get('session')
     exists = session.query(User.Name).filter_by(Name=user_name).scalar() is not None
     if exists:
         if request.method == 'POST':
-            new_question = Question(text=request.form['Question'],option1=request.form['answer1'],
-                                    option2=request.form['answer2'],option3=request.form['answer3'],
-                                    option4=request.form['answer4'],RightAnswer=request.form['answers'])
+            new_quiz = Game(Name=request.form['quizName'], OwnerID=user_name)
+            with DbMutex:
+                session.add(new_quiz)
+                session.commit()
+            return redirect(url_for('create_quiz_question'))
+
+    return render_template('create_quiz_name.html')
+
+
+@app.route('/create/question', methods=['GET', 'POST'])
+def create_quiz_question():
+    user_name = request.cookies.get('user')
+    # session_hash = request.cookies.get('session')
+    exists = session.query(User.Name).filter_by(Name=user_name).scalar() is not None
+    if exists:
+        if request.method == 'POST':
+            my_quiz = session.query(Game).filter_by(OwnerID=user_name).first()
+            quiz_ID = my_quiz.ID
+            new_question = Question(text=request.form['Question'], option1=request.form['answer1'],
+                                    option2=request.form['answer2'], option3=request.form['answer3'],
+                                    option4=request.form['answer4'], RightAnswer=request.form['answers'],
+                                    gameID=quiz_ID)
             with DbMutex:
                 session.add(new_question)
                 session.commit()
-
+            return redirect(url_for('create_quiz_question'))
     else:
         return ("You need to login to an account or create a new one to create a quiz")
 
-    return render_template('crate_quiz.html')
+    return render_template('create_quiz_question.html')
 
 
 # Route for handling the login page logic
@@ -103,15 +120,14 @@ def login():
         given_pass = request.form['password']
         same_pass = verify_password(user_pass, salt, given_pass)
         if same_pass:
-             session_hash = uuid.uuid4()
-             print(session_hash)
-             with DbMutex:
+            session_hash = uuid.uuid4()
+            with DbMutex:
                 my_user.sessionHash = str(session_hash)
                 session.commit()
-             resp = make_response(redirect(url_for('home')))
-             resp.set_cookie("user", request.form['username'])
-             resp.set_cookie("session",  str(session_hash))
-             return resp
+            resp = make_response(redirect(url_for('home')))
+            resp.set_cookie("user", request.form['username'])
+            resp.set_cookie("session", str(session_hash))
+            return resp
         else:
             error = 'username or password may be incorrect'
     return render_template('login.html', error=error)
@@ -140,4 +156,4 @@ def quiz():
 
 # start the server with the 'run()' method
 if __name__ == '__main__':
-    app.run(debug=True,)
+    app.run(debug=True, )

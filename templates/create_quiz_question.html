@@ -6,12 +6,13 @@
   </head>
   <body>
     <div class="container">
-      <h1>Enter a questin</h1>
+      <h1>Enter a question</h1>
       <br>
       <form action="" method="post">
         <input type="text" placeholder="Question" name="Question" value="{{
           request.form.Question }}"><br>
 		  <br>
+          <h3>enter all the answers and select the correct one</h3>
 		  <input type="radio" name="answers" value="1"checked> <input type="text" placeholder="answer1" name="answer1" value="{{
           request.form.answer1 }}"></input><br>
 		  <input type="radio" name="answers" value="2"> <input type="text" placeholder="answer2" name="answer2" value="{{
@@ -21,8 +22,11 @@
 		  <input type="radio" name="answers" value="4"> <input type="text" placeholder="answer4" name="answer4" value="{{
           request.form.answer4 }}"></input><br>
          
-        <input class="btn btn-default" type="submit" value="submit">
+        <input class="btn btn-default" type="submit" value="submit">  <a href="/">finish</a>
+
+
       </form>
+
       {% if error %}
         <p class="error"><strong>Error:</strong> {{ error }}
       {% endif %}
