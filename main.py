@@ -5,18 +5,21 @@ import uuid
 from database import *
 from quiz import Quiz
 
+
 from sqlalchemy.sql import select
 from sqlalchemy import update
 
 import hashlib
 import binascii
 import os
+import random
 
 # create the SQLalchemy engine and session
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-engine = create_engine('sqlite:///quizzy.db?check_same_thread=False', echo=True)
+engine = create_engine(
+    'sqlite:///quizzy.db?check_same_thread=False', echo=True)
 Session = sessionmaker(bind=engine)
 session = Session()
 DbMutex = Lock()
@@ -30,7 +33,8 @@ index = 0
 def hash_password(password):
     """Hash a password for storing."""
     salt = hashlib.sha256(os.urandom(60)).hexdigest().encode('ascii')
-    pwdhash = hashlib.pbkdf2_hmac('sha512', password.encode('utf-8'), salt, 100000)
+    pwdhash = hashlib.pbkdf2_hmac(
+        'sha512', password.encode('utf-8'), salt, 100000)
     pwdhash = binascii.hexlify(pwdhash)
     pwdhash = pwdhash.decode('ascii')
     salt = salt.decode('ascii')
@@ -56,7 +60,8 @@ def home():
 @app.route('/quiz/select', methods=['GET'])
 def select_quiz():
     user_name = request.cookies.get('user')
-    exists = session.query(User.Name).filter_by(Name=user_name).scalar() is not None
+    exists = session.query(User.Name).filter_by(
+        Name=user_name).scalar() is not None
     if exists:
         all_quizs = session.query(Game).filter_by(OwnerID=user_name).all()
         all_quiz_names = []
@@ -70,19 +75,42 @@ def select_quiz():
 
 @app.route('/quiz/<quiz_name>', methods=['GET', 'POST'])
 def run_quiz(quiz_name):
-    exists = session.query(Game.Name).filter_by(Name=quiz_name).scalar() is not None
-    if exists:
-        return (quiz_name)
-    else:
-        return ("this quiz does not exists")
+    def this_sess(x): return session.query(x)
+    exists = this_sess(Game.Name).filter_by(
+        Name=quiz_name).scalar() is not None
+    if not exists:
+        return ("<H1>this quiz does not exists</H1>")
+
+    # Create game pin and make sure it doesnt already exist
+    game_pin = random.randrange(1e3, 1e4-1)
+    while game_pin in session.query(GameRun.gamePin).all():
+        game_pin = random.randrange(1e3, 1e4-1)
+
+    # Create GameRun database
+    game_ids = this_sess(Game.ID).filter_by(Name=quiz_name).all()
+    assert len(game_ids) == 1, 'There are two quizes with the same name. WTF.'
+    game_id = game_ids[0]
+    this_game = GameRun(gamePin=game_pin, Name=quiz_name, Status=True,
+                        gameID=game_id, nextQTime=20, CurrQustion=0)
+
+    return render_template('run_quiz.html', game_pin=game_pin)
 
 
+@app.route('/quiz/start/<quiz_name>', methods=['GET', 'POST'])
+def start_screen_quiz(quiz_name):
+    exists = session.query(Game.Name).filter_by(
+        Name=quiz_name).scalar() is not None
+    if not exists:
+        return ("<h1>this quiz does not exists</h1>")
+
+    return f"Users"
 
 
 @app.route('/create/name', methods=['GET', 'POST'])
 def crate_quiz_name():
     user_name = request.cookies.get('user')
-    exists = session.query(User.Name).filter_by(Name=user_name).scalar() is not None
+    exists = session.query(User.Name).filter_by(
+        Name=user_name).scalar() is not None
     if exists:
         if request.method == 'POST':
             new_quiz = Game(Name=request.form['quizName'], OwnerID=user_name)
@@ -98,7 +126,8 @@ def crate_quiz_name():
 @app.route('/create/question', methods=['GET', 'POST'])
 def create_quiz_question():
     user_name = request.cookies.get('user')
-    exists = session.query(User.Name).filter_by(Name=user_name).scalar() is not None
+    exists = session.query(User.Name).filter_by(
+        Name=user_name).scalar() is not None
     if exists:
         if request.method == 'POST':
             my_quiz = session.query(Game).filter_by(OwnerID=user_name).all()
@@ -124,12 +153,14 @@ def create_quiz_question():
 def signup():
     error = None
     if request.method == 'POST':
-        exists = session.query(User.Name).filter_by(Name=request.form['username']).scalar() is not None
+        exists = session.query(User.Name).filter_by(
+            Name=request.form['username']).scalar() is not None
         if exists:
             error = 'username already exist please choose another one'
         else:
             passhash, salt = hash_password(request.form['password'])
-            ps = User(Name=request.form['username'], Passhash=passhash, Salt=salt)
+            ps = User(Name=request.form['username'],
+                      Passhash=passhash, Salt=salt)
             with DbMutex:
                 session.add(ps)
                 session.commit()
@@ -141,7 +172,8 @@ def signup():
 def login():
     error = None
     if request.method == 'POST':
-        my_user = session.query(User).filter_by(Name=request.form['username']).first()
+        my_user = session.query(User).filter_by(
+            Name=request.form['username']).first()
         user_pass = my_user.Passhash
         salt = my_user.Salt
         given_pass = request.form['password']
@@ -162,4 +194,4 @@ def login():
 
 # start the server with the 'run()' method
 if __name__ == '__main__':
-    app.run(debug=True, )
+    app.run(debug=True, host='0.0.0.0')
