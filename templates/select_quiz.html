@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>quizzy</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  </head>
+  <body>
+    <div class="container">
+      {% for all_quiz_names_element in all_quiz_names %}
+      <p><h3>{{ all_quiz_names_element }}</h3>
+      Click <a href="/quiz/{{all_quiz_names_element}}">here</a> to play </p>
+      <p></p>
+  {% endfor %}
+    </div>
+  </body>
+</html>

@@ -53,10 +53,35 @@ def home():
     return render_template('home.html')  # return a string
 
 
+@app.route('/quiz/select', methods=['GET'])
+def select_quiz():
+    user_name = request.cookies.get('user')
+    exists = session.query(User.Name).filter_by(Name=user_name).scalar() is not None
+    if exists:
+        all_quizs = session.query(Game).filter_by(OwnerID=user_name).all()
+        all_quiz_names = []
+        for i in range(0, len(all_quizs)):
+            all_quiz_names.append(all_quizs[i].Name)
+        return render_template('select_quiz.html', all_quiz_names=all_quiz_names)
+
+    else:
+        return ("You need to login to an account or create a new one to create a quiz")
+
+
+@app.route('/quiz/<quiz_name>', methods=['GET', 'POST'])
+def run_quiz(quiz_name):
+    exists = session.query(Game.Name).filter_by(Name=quiz_name).scalar() is not None
+    if exists:
+        return (quiz_name)
+    else:
+        return ("this quiz does not exists")
+
+
+
+
 @app.route('/create/name', methods=['GET', 'POST'])
 def crate_quiz_name():
     user_name = request.cookies.get('user')
-    # session_hash = request.cookies.get('session')
     exists = session.query(User.Name).filter_by(Name=user_name).scalar() is not None
     if exists:
         if request.method == 'POST':
@@ -65,18 +90,20 @@ def crate_quiz_name():
                 session.add(new_quiz)
                 session.commit()
             return redirect(url_for('create_quiz_question'))
-
+    else:
+        return ("You need to login to an account or create a new one to create a quiz")
     return render_template('create_quiz_name.html')
 
 
 @app.route('/create/question', methods=['GET', 'POST'])
 def create_quiz_question():
     user_name = request.cookies.get('user')
-    # session_hash = request.cookies.get('session')
     exists = session.query(User.Name).filter_by(Name=user_name).scalar() is not None
     if exists:
         if request.method == 'POST':
-            my_quiz = session.query(Game).filter_by(OwnerID=user_name).first()
+            my_quiz = session.query(Game).filter_by(OwnerID=user_name).all()
+            print(my_quiz)
+            my_quiz = my_quiz[-1]
             quiz_ID = my_quiz.ID
             new_question = Question(text=request.form['Question'], option1=request.form['answer1'],
                                     option2=request.form['answer2'], option3=request.form['answer3'],
@@ -131,27 +158,6 @@ def login():
         else:
             error = 'username or password may be incorrect'
     return render_template('login.html', error=error)
-
-
-@app.route('/quiz', methods=['GET', 'POST'])
-def quiz():
-    global index
-    print("lol " + str(index))
-    if request.method == 'POST':
-        answer = request.form['answers']
-        if answer == this_quiz.questions[index].get_right_answer():
-            this_quiz.score += 100
-        index += 1
-    print("seemek " + str(index))
-    if len(this_quiz.questions) <= index:
-        index = 0
-        return ("Your score is " + str(this_quiz.get_score()))
-    print(index)
-    return render_template('quiz.html', question_site=this_quiz.questions[index].get_text(),
-                           answer1_site=this_quiz.questions[index].get_options()[0],
-                           answer2_site=this_quiz.questions[index].get_options()[1],
-                           answer3_site=this_quiz.questions[index].get_options()[2],
-                           answer4_site=this_quiz.questions[index].get_options()[3])
 
 
 # start the server with the 'run()' method
