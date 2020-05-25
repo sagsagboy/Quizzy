@@ -96,14 +96,14 @@ def run_quiz(quiz_name):
     return render_template('run_quiz.html', game_pin=game_pin)
 
 
-@app.route('/quiz/start/<quiz_name>', methods=['GET', 'POST'])
-def start_screen_quiz(quiz_name):
-    exists = session.query(Game.Name).filter_by(
-        Name=quiz_name).scalar() is not None
-    if not exists:
-        return ("<h1>this quiz does not exists</h1>")
-
-    return f"Users"
+@app.route('/quiz/start/<game_pin>', methods=['GET', 'POST'])
+def start_screen_quiz(game_pin):
+    # exists = session.query(Game.Name).filter_by(
+    #     Name=quiz_name).scalar() is not None
+    # if not exists:
+    #     return ("<h1>this quiz does not exists</h1>")
+    players = session.query(userScores.userID).filter_by(gameRunsID=game_pin)
+    return render_template('start_screen.html', all_players=players)
 
 
 @app.route('/create/name', methods=['GET', 'POST'])
