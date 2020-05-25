@@ -1,9 +1,8 @@
 # import the Flask class from the flask module
-from flask import Flask, render_template, redirect, url_for, request, make_response
+from flask import Flask, render_template, redirect, url_for, request, make_response, flash
 from threading import Lock
 import uuid
 from database import *
-from quiz import Quiz
 
 
 from sqlalchemy.sql import select
@@ -26,8 +25,6 @@ DbMutex = Lock()
 
 # create the application object
 app = Flask(__name__)
-this_quiz = Quiz()
-index = 0
 
 
 def hash_password(password):
@@ -75,16 +72,18 @@ def select_quiz():
 
 @app.route('/quiz/<quiz_name>', methods=['GET', 'POST'])
 def run_quiz(quiz_name):
-    def this_sess(x): return session.query(x)
+    def this_sess(x):
+        return session.query(x)
+
     exists = this_sess(Game.Name).filter_by(
         Name=quiz_name).scalar() is not None
     if not exists:
         return ("<H1>this quiz does not exists</H1>")
 
     # Create game pin and make sure it doesnt already exist
-    game_pin = random.randrange(1e3, 1e4-1)
+    game_pin = random.randrange(1e3, 1e4 - 1)
     while game_pin in session.query(GameRun.gamePin).all():
-        game_pin = random.randrange(1e3, 1e4-1)
+        game_pin = random.randrange(1e3, 1e4 - 1)
 
     # Create GameRun database
     game_ids = this_sess(Game.ID).filter_by(Name=quiz_name).all()
@@ -100,12 +99,38 @@ def run_quiz(quiz_name):
 
 @app.route('/quiz/start/<game_pin>', methods=['GET', 'POST'])
 def start_screen_quiz(game_pin):
-    # exists = session.query(Game.Name).filter_by(
-    #     #     Name=quiz_name).scalar() is not None
-    #     # if not exists:
-    #     #     return ("<h1>this quiz does not exists</h1>")
-    players = session.query(userScores.userID).filter_by(gameRunsID=game_pin)
+    if request.method == 'POST':
+        game_runs_id = session.query(GameRun.gameID).filter_by(gamePin=game_pin).first()[0]
+        question_id = session.query(Question.ID).filter_by(gameID=game_runs_id).first()[0]
+        return redirect(url_for('in_game_host', game_pin=game_pin, question_id=question_id))
+    players = session.query(userScore.nickName).filter_by(gameRunsID=game_pin)
     return render_template('start_screen.html', all_players=players)
+
+
+@app.route('/quiz/start/<game_pin>/<question_id>', methods=['GET', 'POST'])
+def in_game_host(game_pin, question_id):
+    if request.method == 'POST':
+        this_question_game_id = session.query(Question.gameID).filter_by(ID=question_id).first()
+        next_question_id = int(question_id) + 1
+        next_question_game_id = session.query(Question.gameID).filter_by(ID=next_question_id).first()
+        if this_question_game_id == next_question_game_id:
+            return redirect(url_for('in_game_host', game_pin=game_pin, question_id=str(int(question_id) + 1)))
+        else:
+            return redirect(url_for('leaderboard',game_pin=game_pin))
+
+    question = session.query(Question.text).filter_by(ID=question_id).first()[0]
+    questions = [Question.option1, Question.option1, Question.option3, Question.option4]
+    a = [session.query(q).filter_by(ID=question_id).first()[0] for q in questions]
+
+    return render_template('in_game_host.html', question=question, a=a)
+
+
+@app.route('/quiz/leaderboard/<game_pin>')
+def leaderboard(game_pin):
+    if request.method == 'POST':
+        return redirect(url_for('home'))
+    players = session.query(userScore.nickName).filter_by(gameRunsID=game_pin).all()
+    return render_template('leaderboard.html', all_players=players)
 
 
 @app.route('/connect', methods=['GET', 'POST'])
@@ -117,13 +142,69 @@ def connect():
         with DbMutex:
             session.add(user_score)
             session.commit()
-        resp = make_response(redirect(url_for('connect')))
+        resp = make_response(redirect(url_for('wait')))
         resp.set_cookie("nick_name", nick_name)
         return resp
     return render_template('connect.html')
 
 
+@app.route('/connect/wait', methods=['GET', 'POST'])
+def wait():
+    if request.method == 'POST':
+        nick_name = request.cookies.get('nick_name')
+        game_runs_pin = session.query(userScore.gameRunsID).filter_by(nickName=nick_name).first()[0]
+        game_runs_id = session.query(GameRun.gameID).filter_by(gamePin=game_runs_pin).first()[0]
+        question_id = session.query(Question.ID).filter_by(gameID=game_runs_id).first()[0]
+        return redirect(url_for('in_game_player', game_pin=game_runs_pin, question_id=question_id))
+    return render_template('wait.html')
 
+
+@app.route('/quiz/game/<game_pin>/<question_id>', methods=['GET', 'POST'])
+def in_game_player(game_pin, question_id):
+    if request.method == 'POST':
+        answer = int(request.form['answers'])
+        right_answer = int(session.query(Question.RightAnswer).filter_by(ID=question_id).first()[0])
+
+        nickName = request.cookies.get('nick_name')
+        player_answer = userAnswers(nickName=nickName, questionID=question_id, gameRunsID=game_pin, time=0,
+                                    answer=answer)
+        with DbMutex:
+            session.add(player_answer)
+            session.commit()
+        res = redirect(
+            url_for('in_game_wait_player', game_pin=game_pin, question_id=question_id, correct=answer == right_answer))
+        if answer == right_answer:
+            my_player = session.query(userScore).filter_by(nickName=nickName).first()
+            my_player_score = my_player.score
+            my_player_score += 1
+            with DbMutex:
+                my_player.score = my_player_score
+                session.commit()
+            print('Correct answer!!')
+        this_question_game_id = session.query(Question.gameID).filter_by(ID=question_id).first()
+        next_question_id = int(question_id) + 1
+        next_question_game_id = session.query(Question.gameID).filter_by(ID=next_question_id).first()
+        if this_question_game_id == next_question_game_id:
+            return res
+        else:
+            score = session.query(userScore.score).filter_by(nickName=nickName).first()[0]
+            score = score * 100
+            return "you finished the quiz your score is " + str(score)
+
+    question = session.query(Question.text).filter_by(ID=question_id).first()[0]
+    questions = [Question.option1, Question.option1, Question.option3, Question.option4]
+    a = [session.query(q).filter_by(ID=question_id).first()[0] for q in questions]
+
+    return render_template('in_game_player.html', question=question, a=a)
+
+
+@app.route('/quiz/game-wait/<game_pin>/<question_id>/<correct>', methods=['GET', 'POST'])
+def in_game_wait_player(game_pin, question_id, correct):
+    if request.method == 'POST':
+        return redirect(url_for('in_game_player', game_pin=game_pin, question_id=str(int(question_id) + 1)))
+    message = 'You got it right!🎉' if correct == 'True' else 'Lol noob 😎'
+    return render_template('wait_for_next_question.html', question=question_id, message=message)
+    # Once finished waiting, go to /quiz/game/<game_pin>/(<question_id> +1)
 
 
 @app.route('/create/name', methods=['GET', 'POST'])
