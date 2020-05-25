@@ -74,9 +74,12 @@ t_userAnswers = Table(
 )
 
 
-t_userScore = Table(
-    'userScore', metadata,
-    Column('userID', ForeignKey('users.ID')),
-    Column('gameRunsID', ForeignKey('GameRuns.ID')),
-    Column('score', Integer)
-)
+class userScore(Base):
+    __tablename__ = 'userScore'
+    ID = Column(Integer, primary_key=True, autoincrement=True)
+    nickName = Column(Text)
+    gameRunsID = Column(Text)
+    score = Column('score', Integer)
+
+
+

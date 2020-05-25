@@ -87,21 +87,41 @@ def run_quiz(quiz_name):
     # Create GameRun database
     game_ids = this_sess(Game.ID).filter_by(Name=quiz_name).all()
     assert len(game_ids) == 1, 'There are two quizes with the same name. WTF.'
-    game_id = game_ids[0]
-    this_game = GameRun(gamePin=game_pin, Name=quiz_name, Status=True,
+    game_id = int(game_ids[0][0])
+    this_game = GameRun(gamePin=str(game_pin), Name=quiz_name, Status='True',
                         gameID=game_id, nextQTime=20, CurrQustion=0)
-
+    with DbMutex:
+        session.add(this_game)
+        session.commit()
     return render_template('run_quiz.html', game_pin=game_pin)
 
 
 @app.route('/quiz/start/<game_pin>', methods=['GET', 'POST'])
 def start_screen_quiz(game_pin):
     # exists = session.query(Game.Name).filter_by(
-    #     Name=quiz_name).scalar() is not None
-    # if not exists:
-    #     return ("<h1>this quiz does not exists</h1>")
+    #     #     Name=quiz_name).scalar() is not None
+    #     # if not exists:
+    #     #     return ("<h1>this quiz does not exists</h1>")
     players = session.query(userScores.userID).filter_by(gameRunsID=game_pin)
     return render_template('start_screen.html', all_players=players)
+
+
+@app.route('/connect', methods=['GET', 'POST'])
+def connect():
+    if request.method == 'POST':
+        game_pin = request.form['gamepin']
+        nick_name = request.form['name']
+        user_score = userScore(nickName=nick_name, gameRunsID=str(game_pin), score=0)
+        with DbMutex:
+            session.add(user_score)
+            session.commit()
+        resp = make_response(redirect(url_for('connect')))
+        resp.set_cookie("nick_name", nick_name)
+        return resp
+    return render_template('connect.html')
+
+
+
 
 
 @app.route('/create/name', methods=['GET', 'POST'])

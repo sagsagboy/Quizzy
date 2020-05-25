@@ -1,0 +1,23 @@
+<html>
+  <head>
+    <title>quizzy</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="static/bootstrap.min.css" rel="stylesheet" media="screen">
+  </head>
+  <body>
+    <div class="container">
+      <h1>enter game pin</h1>
+      </br>
+      <form action="" method="post">
+        <input type="text" placeholder="gamepin" name="gamepin" value="{{
+          request.form.gamepin }}">
+
+      <h1>enter nickname</h1>
+      <br>
+        <input type="text" placeholder="nickname" name="name" value="{{
+          request.form.name }}">
+          <input class="btn btn-default" type="submit" value="enter">
+      </form>
+    </div>
+  </body>
+</html>
