@@ -64,9 +64,7 @@ def select_quiz():
         Name=user_name).scalar() is not None
     if exists:
         all_quizs = session.query(Game).filter_by(OwnerID=user_name).all()
-        all_quiz_names = []
-        for i in range(0, len(all_quizs)):
-            all_quiz_names.append(all_quizs[i].Name)
+        all_quiz_names = [quiz.name for in all_quizs]
         return render_template('select_quiz.html', all_quiz_names=all_quiz_names)
 
     else:
